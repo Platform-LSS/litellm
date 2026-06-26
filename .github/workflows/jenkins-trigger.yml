@@ -1,0 +1,58 @@
+# Fired when a PR is merged into litellm_internal_staging (the default branch
+# of this Platform-LSS fork). POSTs to Jenkins job internal-tools/litellm.
+#
+# Per-repo + org-level config consumed:
+#   vars.JENKINS_URL       https://cicd.rxmaster.ai
+#   vars.JENKINS_USER      Jenkins user with Job/Build permission (plss-admin)
+#   secrets.JENKINS_TOKEN  API token for JENKINS_USER
+#
+# This is a fork of BerriAI/litellm. We carry our own internal-staging branch
+# for PlatformLSS deployments — this workflow is OUR Jenkins integration only,
+# unrelated to the dozens of upstream test workflows in this repo.
+
+name: jenkins-trigger
+on:
+  pull_request:
+    branches: [litellm_internal_staging]
+    types: [closed]
+jobs:
+  trigger:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fire Jenkins build
+        env:
+          JENKINS_URL: ${{ vars.JENKINS_URL }}
+          JENKINS_USER: ${{ vars.JENKINS_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+          JENKINS_JOB_PATH: job/internal-tools/job/litellm
+          BRANCH: ${{ github.event.pull_request.base.ref }}
+          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          TRIGGER_ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          echo "PR #${PR_NUMBER}: '${PR_TITLE}'"
+          echo "Author: ${PR_AUTHOR}    Merged by: ${TRIGGER_ACTOR}"
+          echo "Merged ${SHA} into ${BRANCH}"
+          echo "Firing: ${JENKINS_URL}/${JENKINS_JOB_PATH}/buildWithParameters"
+
+          curl --silent --show-error --fail-with-body \
+            -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+            -X POST \
+            --data-urlencode "BRANCH=${BRANCH}" \
+            --data-urlencode "SHA=${SHA}" \
+            --data-urlencode "PR_NUMBER=${PR_NUMBER}" \
+            --data-urlencode "PR_TITLE=${PR_TITLE}" \
+            --data-urlencode "PR_AUTHOR=${PR_AUTHOR}" \
+            --data-urlencode "TRIGGER_ACTOR=${TRIGGER_ACTOR}" \
+            "${JENKINS_URL}/${JENKINS_JOB_PATH}/buildWithParameters" \
+            -o /tmp/jenkins-response \
+            -w "HTTP %{http_code} (Location: %header{location})\n"
+
+          echo
+          echo "Done. Build queued in Jenkins; watch:"
+          echo "  ${JENKINS_URL}/${JENKINS_JOB_PATH}/"
