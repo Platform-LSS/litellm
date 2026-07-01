@@ -1,14 +1,15 @@
-# Fired when a PR is merged into litellm_internal_staging (the default branch
-# of this Platform-LSS fork). POSTs to Jenkins job internal-tools/litellm.
+# Fired when a PR is merged into the default branch. POSTs the merge-commit SHA + PR
+# metadata to the Jenkins build job for this repo.
+#
+# Aligned with Platform-LSS/plss-ways-of-working technical-ways-of-working.md §A.7.
+#
+# Configuration is managed at the GitHub org + per-repo variable level.
 #
 # Per-repo + org-level config consumed:
-#   vars.JENKINS_URL       https://cicd.rxmaster.ai
-#   vars.JENKINS_USER      Jenkins user with Job/Build permission (plss-admin)
-#   secrets.JENKINS_TOKEN  API token for JENKINS_USER
-#
-# This is a fork of BerriAI/litellm. We carry our own internal-staging branch
-# for PlatformLSS deployments — this workflow is OUR Jenkins integration only,
-# unrelated to the dozens of upstream test workflows in this repo.
+#   vars.JENKINS_URL       https://cicd.rxmaster.ai      (org-level)
+#   vars.JENKINS_USER      Jenkins user w/ Job/Build     (org-level)
+#   vars.JENKINS_JOB_PATH  job/internal-tools/job/litellm  (per-repo)
+#   secrets.JENKINS_TOKEN  API token for JENKINS_USER    (org-level)
 
 name: jenkins-trigger
 on:
@@ -26,7 +27,7 @@ jobs:
           JENKINS_URL: ${{ vars.JENKINS_URL }}
           JENKINS_USER: ${{ vars.JENKINS_USER }}
           JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
-          JENKINS_JOB_PATH: job/internal-tools/job/litellm
+          JENKINS_JOB_PATH: ${{ vars.JENKINS_JOB_PATH }}
           BRANCH: ${{ github.event.pull_request.base.ref }}
           SHA: ${{ github.event.pull_request.merge_commit_sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
