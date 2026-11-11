@@ -97,6 +97,14 @@ COPY --from=builder /app /app
 # + emptyDir) — otherwise the mount would shadow the baked-in query engine.
 COPY --from=builder /root/.cache /root/.cache
 
+# OpenShift restricted-v2 (SHIB dev-ruh) runs the container as an arbitrary UID in
+# gid 0. /root and the prisma binaries under it are mode 700 from the root build,
+# so that UID cannot read the query engine and the proxy dies with
+# "NotConnectedError: Not connected to the query engine". Group read/traverse is
+# enough because the arbitrary UID is in gid 0. One image serves both, and an
+# environment that runs it as root is unaffected, so digest parity is kept.
+RUN chmod -R g+rX /root
+
 RUN find /app/.venv -type f -path "*/tornado/test/*" -delete && \
     find /app/.venv -type d -path "*/tornado/test" -delete
 
